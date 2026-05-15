@@ -1,0 +1,127 @@
+name: CI/CD Pipeline
+
+# ─── Trigger ────────────────────────────────────────────────────────────────
+# Pipeline jalan otomatis saat:
+#   - Push ke branch main (build + push Docker)
+#   - Pull Request ke main (hanya test, tidak push image)
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# ─── Env global ─────────────────────────────────────────────────────────────
+env:
+  # Ganti dengan username Docker Hub lo
+  IMAGE_NAME: ${{ lukmankhakim09 }}/projects-devops
+
+# ─── Jobs ────────────────────────────────────────────────────────────────────
+jobs:
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # JOB 1 — test
+  # Install dependencies & jalankan Jest.
+  # Job ini jalan di SEMUA event (push main + PR).
+  # ════════════════════════════════════════════════════════════════════════════
+  test:
+    name: Install & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout kode
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Setup Node.js versi LTS
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'             # cache node_modules — build lebih cepat
+
+      # 3. Install dependencies (pakai ci bukan install, lebih strict & deterministik)
+      - name: Install dependencies
+        run: npm ci
+
+      # 4. Jalankan test Jest
+      - name: Run tests
+        run: npm test
+
+      # 5. Upload coverage report sebagai artifact (opsional tapi bagus untuk portofolio)
+      - name: Upload coverage report
+        if: always()               # upload meski test gagal, biar bisa debug
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # JOB 2 — build-and-push
+  # Build multi-stage Docker image & push ke Docker Hub.
+  # HANYA jalan saat push ke main (bukan PR) dan HANYA jika job test lulus.
+  # ════════════════════════════════════════════════════════════════════════════
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: test                    # tunggu job test selesai dulu
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      # 1. Checkout kode
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Generate metadata untuk tagging otomatis
+      #    Menghasilkan dua tag:
+      #      - latest         → selalu versi terbaru dari main
+      #      - sha-xxxxxxx    → tied ke commit spesifik, bisa rollback presisi
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-,format=short
+
+      # 3. Setup Docker Buildx (required untuk build cache & multi-platform)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 4. Login ke Docker Hub menggunakan secrets dari GitHub
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 5. Build & Push image
+      #    --cache-from/to: layer cache disimpan di GitHub Actions cache
+      #    Efeknya: build ke-2 dst jauh lebih cepat karena layer yang tidak
+      #    berubah (terutama node_modules) langsung diambil dari cache.
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # 6. Print ringkasan hasil build ke job summary
+      - name: Print image summary
+        run: |
+          echo "## Docker Image Published 🐳" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ env.IMAGE_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags pushed:**" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" | tr ',' '\n' | while read tag; do
+            echo "- \`$tag\`" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY

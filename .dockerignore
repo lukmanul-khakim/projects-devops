@@ -1,0 +1,35 @@
+# Dependencies — Docker install sendiri via npm ci
+node_modules
+
+# Git
+.git
+.gitignore
+
+# CI/CD
+.github
+
+# Docker files sendiri (tidak perlu masuk image)
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.*.yml
+
+# Logs & runtime files
+*.log
+npm-debug.log*
+.npm
+
+# Test & coverage
+coverage
+.nyc_output
+
+# Editor & OS
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Environment files — JANGAN pernah masuk image
+.env
+.env.*
+!.env.example
