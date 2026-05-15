@@ -1,6 +1,6 @@
 # projects-devops
 
-[![CI/CD Pipeline](https://github.com/lukmanul-khakim/projects-devops/actions/workflows/ci.yml/badge.svg)](https://github.com/lukmankhakim09/projects-devops/actions/workflows/ci.yml)
+[![CI/CD Pipeline](https://github.com/lukmanul-khakim/projects-devops/actions/workflows/ci.yml/badge.svg)](https://github.com/lukmanul-khakim/projects-devops/actions/workflows/ci.yml)
 [![Docker Image](https://img.shields.io/docker/v/lukmankhakim09/projects-devops?label=docker%20hub&color=2496ED&logo=docker&logoColor=white)](https://hub.docker.com/r/lukmankhakim09/projects-devops)
 [![Docker Pulls](https://img.shields.io/docker/pulls/lukmankhakim09/projects-devops)](https://hub.docker.com/r/lukmankhakim09/projects-devops)
 [![Node.js](https://img.shields.io/badge/node-20--alpine-brightgreen?logo=node.js&logoColor=white)](https://nodejs.org)
